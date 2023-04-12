@@ -42,7 +42,6 @@ class APIException(WaifuException):
 class NoToken(WaifuException):
     """Exception raised when the user try to request the gallery route with no token"""
 
-    def __init__(self, detail=f'You tried to request the gallery route with no token.'
-                               'Please pass your token to WaifuAioClient'):
+    def __init__(self, detail='You tried to request the gallery route with no token.Please pass your token to WaifuAioClient'):
         super().__init__(detail)
         self.detail = detail

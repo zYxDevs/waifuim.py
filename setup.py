@@ -2,7 +2,9 @@ import re
 from setuptools import setup
 
 with open('waifuim/moduleinfo.py', 'r') as f:
-    version = re.search(r'^__version__\s*=\s*[\'"]([^\'"]*)[\'"]', f.read(), re.MULTILINE).group(1)
+    version = re.search(
+        r'^__version__\s*=\s*[\'"]([^\'"]*)[\'"]', f.read(), re.MULTILINE
+    )[1]
 
 with open('README.md', 'r') as f:
     readme = f.read()

@@ -66,8 +66,9 @@ class WaifuAioClient(contextlib.AbstractAsyncContextManager):
 
     @staticmethod
     def _create_headers(**kwargs) -> Optional[Dict]:
-        rt = {k: str(i) for k, i in kwargs.items() if i or isinstance(i, bool)}
-        if rt:
+        if rt := {
+            k: str(i) for k, i in kwargs.items() if i or isinstance(i, bool)
+        }:
             return rt
 
     @staticmethod
@@ -75,16 +76,16 @@ class WaifuAioClient(contextlib.AbstractAsyncContextManager):
         rt = {}
         for k, i in kwargs.items():
             if isinstance(i, (list, tuple, set)):
-                rt.update({k: list(i)})
+                rt[k] = list(i)
             elif isinstance(i, Image):
-                rt.update({k: i.image_id})
+                rt[k] = i.image_id
             elif i or isinstance(i, int):
                 if isinstance(i, bool):
-                    rt.update({k: str(i)})
+                    rt[k] = str(i)
                 elif (isinstance(i, str) and i.isdigit()) or isinstance(i, int):
-                    rt.update({k: int(i)})
+                    rt[k] = int(i)
                 else:
-                    rt.update({k: str(i)})
+                    rt[k] = str(i)
         if rt:
             return rt
 
@@ -107,8 +108,7 @@ class WaifuAioClient(contextlib.AbstractAsyncContextManager):
         session = await self._get_session()
 
         headers = {'User-Agent': self.app_name, 'Accept-Version': 'v5'}
-        provided_headers = kwargs.pop("headers", None)
-        if provided_headers:
+        if provided_headers := kwargs.pop("headers", None):
             headers = {**headers, **provided_headers}
         async with session.request(method.upper(), url, headers=headers, **kwargs) as response:
             if response.status == 204:  # old but can still be useful in the future
@@ -175,16 +175,15 @@ class WaifuAioClient(contextlib.AbstractAsyncContextManager):
                                      )
         headers = {}
         if full:
-            if not token and not self.token:
+            if token or self.token:
+                headers['Authorization'] = f'Bearer {token or self.token}'
+            else:
                 raise NoToken(detail="the 'full' query string is only accessible to admins and needs a token")
-            headers.update({'Authorization': f'Bearer {token if token else self.token}'})
         infos = await self._make_request(f"{APIBaseURL}search", 'get', params=params, headers=headers)
         if raw:
             return infos
         images = [Image(im) for im in infos['images']]
-        if len(images) > 1:
-            return images
-        return images[0]
+        return images if len(images) > 1 else images[0]
 
     @requires_token
     async def fav(
@@ -241,12 +240,12 @@ class WaifuAioClient(contextlib.AbstractAsyncContextManager):
                                      byte_size=byte_size,
                                      gif=gif,
                                      )
-        headers = self._create_headers(**{'Authorization': f'Bearer {token if token else self.token}'})
+        headers = self._create_headers(
+            **{'Authorization': f'Bearer {token or self.token}'}
+        )
 
         infos = await self._make_request(f"{APIBaseURL}fav", 'get', params=params, headers=headers)
-        if raw:
-            return infos
-        return [Image(im) for im in infos['images']]
+        return infos if raw else [Image(im) for im in infos['images']]
 
     @requires_token
     async def fav_delete(
@@ -268,10 +267,11 @@ class WaifuAioClient(contextlib.AbstractAsyncContextManager):
             APIException: If the API response contains an error.
         """
         params = self._create_params(
-            user_id=int(user_id) if user_id is not None else None,
-            image_id=image_id,
+            user_id=user_id if user_id is not None else None, image_id=image_id
         )
-        headers = self._create_headers(**{'Authorization': f'Bearer {token if token else self.token}'})
+        headers = self._create_headers(
+            **{'Authorization': f'Bearer {token or self.token}'}
+        )
         return await self._make_request(f"{APIBaseURL}fav/delete", 'delete', json=params, headers=headers)
 
     @requires_token
@@ -293,10 +293,11 @@ class WaifuAioClient(contextlib.AbstractAsyncContextManager):
             APIException: If the API response contains an error.
         """
         params = self._create_params(
-            user_id=int(user_id) if user_id is not None else None,
-            image_id=image_id,
+            user_id=user_id if user_id is not None else None, image_id=image_id
         )
-        headers = self._create_headers(**{'Authorization': f'Bearer {token if token else self.token}'})
+        headers = self._create_headers(
+            **{'Authorization': f'Bearer {token or self.token}'}
+        )
         return await self._make_request(f"{APIBaseURL}fav/insert", 'post', json=params, headers=headers)
 
     @requires_token
@@ -317,11 +318,14 @@ class WaifuAioClient(contextlib.AbstractAsyncContextManager):
             APIException: If the API response contains an error.
         """
         params = self._create_params(
-            user_id=int(user_id) if user_id is not None else None,
-            image_id=image_id,
+            user_id=user_id if user_id is not None else None, image_id=image_id
         )
         headers = self._create_headers(
-            **{'User-Agent': self.app_name, 'Authorization': f'Bearer {token if token else self.token}'})
+            **{
+                'User-Agent': self.app_name,
+                'Authorization': f'Bearer {token or self.token}',
+            }
+        )
         return await self._make_request(f"{APIBaseURL}fav/toggle", 'post', json=params, headers=headers)
 
     @requires_token
@@ -343,7 +347,7 @@ class WaifuAioClient(contextlib.AbstractAsyncContextManager):
         params = self._create_params(
             image_id=image_id,
             description=description,
-            user_id=int(user_id) if user_id is not None else None,
+            user_id=user_id if user_id is not None else None,
         )
         headers = self._create_headers(**{'Authorization': f'Bearer {self.token}'})
         return await self._make_request(f"{APIBaseURL}report", 'post', json=params, headers=headers)
@@ -360,11 +364,10 @@ class WaifuAioClient(contextlib.AbstractAsyncContextManager):
 
         """
         params = self._create_params(full=full)
-        results = await self._make_request(APIBaseURL + f'tags', 'get', params=params)
+        results = await self._make_request(f'{APIBaseURL}tags', 'get', params=params)
         if not full or raw:
             return results
         tags = []
         for k, v in results.items():
-            for tag_infos in v:
-                tags.append(Tag(tag_infos))
+            tags.extend(Tag(tag_infos) for tag_infos in v)
         return tags
